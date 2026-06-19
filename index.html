@@ -154,7 +154,7 @@ nav a{transition:color .2s;white-space:nowrap}nav a:hover{color:var(--gd)}
 /* mobile swipe deck */
 .crew-mobile{display:none}
 .deck-count{font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--gd);text-align:center;margin-bottom:16px}
-.deck-stage{position:relative;width:100%;max-width:300px;margin:0 auto;aspect-ratio:3/4}
+.deck-stage{position:relative;width:100%;max-width:300px;margin:0 auto;aspect-ratio:3/4;touch-action:none}
 .crew-mobile .mcard{position:absolute;inset:0;height:auto;cursor:pointer;
   transition:transform .55s cubic-bezier(.5,.08,.2,1),opacity .5s,filter .5s}
 .crew-mobile .mcard.active{opacity:1;transform:none;filter:none}
@@ -254,7 +254,7 @@ Get on the list to catch them first.</div>
     <div class="crew-mobile">
       <div class="deck-count"><span data-cur>01</span> / 09</div>
       <div class="deck-stage" data-stage></div>
-      <div class="deck-hint"><span>↑</span>Swipe up</div>
+      <div class="deck-hint"><span>↑</span>Drag up</div>
     </div>
   </div>
 </section>
@@ -367,21 +367,43 @@ if(stage){
   document.querySelectorAll('.cardgrid .mcard').forEach(c=>stage.appendChild(c.cloneNode(true)));
   const dcards=[...stage.querySelectorAll('.mcard')];
   const cur=document.querySelector('[data-cur]');
-  let i=0;
+  let i=0, dragging=false, startY=0, dy=0, active=null;
   const draw=()=>{
     dcards.forEach((c,n)=>{
       c.classList.remove('active','behind','gone','out');
       c.classList.add(n===i?'active':n===i+1?'behind':'gone');
+      c.style.transform='';c.style.opacity='';
       c.style.zIndex=n===i?3:n===i+1?2:1;
     });
     if(cur)cur.textContent=String(i+1).padStart(2,'0');
   };
-  const advance=()=>{const a=dcards[i];a.classList.add('out');a.style.zIndex=4;setTimeout(()=>{i=(i+1)%dcards.length;draw();},380);};
+  const advance=()=>{
+    const a=dcards[i];a.classList.add('out');a.style.transform='';a.style.opacity='';a.style.zIndex=4;
+    setTimeout(()=>{i=(i+1)%dcards.length;draw();},360);
+  };
   draw();
-  let sy=null;
-  stage.addEventListener('touchstart',e=>{sy=e.touches[0].clientY;},{passive:true});
-  stage.addEventListener('touchend',e=>{if(sy==null)return;const dy=e.changedTouches[0].clientY-sy;if(dy<-38)advance();sy=null;},{passive:true});
-  stage.addEventListener('click',advance);
+  stage.addEventListener('pointerdown',e=>{
+    active=dcards[i];dragging=true;startY=e.clientY;dy=0;
+    active.style.transition='none';
+    try{stage.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  stage.addEventListener('pointermove',e=>{
+    if(!dragging||!active)return;
+    dy=e.clientY-startY;
+    const v=dy<0?dy:dy*0.25;
+    const p=Math.max(0,Math.min(1,-dy/220));
+    active.style.transform='translateY('+v+'px) rotate('+(v*0.02)+'deg)';
+    active.style.opacity=String(1-p*0.6);
+  });
+  const release=()=>{
+    if(!dragging||!active)return;
+    dragging=false;active.style.transition='';
+    if(dy<-70||Math.abs(dy)<8){advance();}
+    else{active.style.transform='';active.style.opacity='';}
+    active=null;dy=0;
+  };
+  stage.addEventListener('pointerup',release);
+  stage.addEventListener('pointercancel',release);
 }
 </script>
 </body>
